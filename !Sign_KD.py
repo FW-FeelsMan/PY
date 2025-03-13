@@ -1,7 +1,4 @@
-﻿# Программа для заполнения основной надписи КД в формате PDF
-
-
-import io
+﻿import io
 import sys
 from openpyxl import load_workbook
 from pathlib import Path
@@ -178,8 +175,8 @@ litera_3
 # ИЗВЕЩЕНИЕ
 # Координаты текстовых объектов по горизонтали от правого края спецификации (в мм)
 x_change_bom = [
-188, # Номер изменения
-181, # Вид изменения
+187, # Номер изменения
+178, # Вид изменения
 170, # Номер извещения
 149, # Подпись
 135.5, # Дата
@@ -215,12 +212,12 @@ y_change_drawing = [
 # ФАМИЛИИ
 # Координаты текстовых объектов по горизонтали от правого края спецификации (в мм)
 x_last_name_bom = [
-172, # Разработал
-172, # Проверил
+173, # Разработал
+173, # Проверил
 0,
 190, # Согласовано
-172, # Нормоконтроль
-172 # Утвердил
+173, # Нормоконтроль
+173 # Утвердил
 ]
 
 # Координаты текстовых объектов по вертикали от нижнего края спецификации (в мм)
@@ -338,16 +335,16 @@ y_date_drawing = [
 # ЛИТЕРА
 # Координаты текстовых объектов по горизонтали от правого края спецификации (в мм)
 x_litera_bom = [
-56, # Литера 1
-51, # Литера 2
-46 # Литера 3
+55, # Литера 1
+50, # Литера 2
+45 # Литера 3
 ]
 
 # Координаты текстовых объектов по вертикали от нижнего края спецификации (в мм)
 y_litera_bom = [
-22.5, # Литера 1
-22.5, # Литера 2
-22.5 # Литера 3
+21.5, # Литера 1
+21.5, # Литера 2
+21.5 # Литера 3
 ]
 
 # Координаты текстовых объектов по горизонтали от правого края чертежа (в мм)
@@ -388,49 +385,73 @@ for name in file_names:
     doc_is_scheme = document_is_scheme(name)
 
     # ЗАПОЛНЕНИЕ ДАННЫХ ОБ ИЗВЕЩЕНИИ
-    can.setFont('GOST', 8)
+    can.setFont('GOST', 14)
     if doc_is_bom and not doc_is_scheme:
         x_coordinates = x_change_bom
         y_coordinates = y_change_bom
     else:
         x_coordinates = x_change_drawing
         y_coordinates = y_change_drawing
+
+    # Добавим оффсеты для данных об извещении
+    shift_x_change_data = [2, 3, 3, 0, 0, 0]  # Пример сдвигов по X
+    shift_y_change_data = [-1, -1, -1, 0, -1, 0]  # Пример сдвигов по Y
+
+    # Массив изменения шрифта для каждого элемента
+    # (индекс 3 – картинка, для нее шрифт не используется, можно задать любое значение)
+    font_size_change_data = [10, 10, 10, 10, 7, 14]
+
     for index in range(0, len(x_coordinates)):
-        x_coordinate = page_width - x_coordinates[index] * convert_mm_to_pt
-        y_coordinate = y_coordinates[index] * convert_mm_to_pt
-        # Уменьшение шрифта для даты
-        if index == 4:
-            can.setFont('GOST', 6)
-        if index == 3 and change_sign_status == 'да':
-            can.drawImage(sign_list[0], x_coordinate, y_coordinate, sign_width, sign_height)
-        elif index == 3 and change_sign_status != 'да':
+        # Получаем сдвиги для текущего индекса
+        shift_x = shift_x_change_data[index] if index < len(shift_x_change_data) else 0
+        shift_y = shift_y_change_data[index] if index < len(shift_y_change_data) else 0
+        
+        x_coordinate = page_width - (x_coordinates[index] + shift_x) * convert_mm_to_pt
+        y_coordinate = (y_coordinates[index] + shift_y) * convert_mm_to_pt
+
+        # Если элемент с индексом 3 – это картинка
+        if index == 3:
+            if change_sign_status == 'да':
+                can.drawImage(sign_list[0], x_coordinate, y_coordinate, sign_width, sign_height)
             continue
         else:
             if document_change_data[index] == '':
                 continue
+            # Устанавливаем шрифт для текущего элемента по массиву
+            font_size = font_size_change_data[index] if index < len(font_size_change_data) else 14
+            can.setFont('GOST', font_size)
             can.drawString(x_coordinate, y_coordinate, document_change_data[index])
 
-    # ЗАПОЛНЕНИЕ ФАМИЛИЙ
-    can.setFont('GOST', 14)
+   # ЗАПОЛНЕНИЕ ФАМИЛИЙ#############################################################################
+        can.setFont('GOST', 14)
+
     if doc_is_bom and not doc_is_scheme:
         x_coordinates = x_last_name_bom
         y_coordinates = y_last_name_bom
     else:
         x_coordinates = x_last_name_drawing
         y_coordinates = y_last_name_drawing
-    for index in range(0, len(x_coordinates)):
+
+    shift_x_last_name = [0, 0, 0, -18, 0, 18]  # Дополнительный сдвиг по X
+    shift_y_last_name = [0, 0, 0, -5, -5, 10]  # получилось -5 спозиционировало Н.контр. 10 спозиционировало Согласов.
+
+    for index in range(len(x_coordinates)):
         if sign_status_data[index] != 'да':
             continue
-        # Пропуск фамилии технолога в спецификацях
         if doc_is_bom and index == 2:
             continue
-        # Пропуск фамилии технолога в схемах
         if doc_is_scheme and index == 2:
             continue
         if last_name_data[index] == '':
             continue
-        x_coordinate = page_width - x_coordinates[index] * convert_mm_to_pt
-        y_coordinate = y_coordinates[index] * convert_mm_to_pt
+
+        shift_x = shift_x_last_name[index] if index < len(shift_x_last_name) else 0
+        shift_y = shift_y_last_name[index] if index < len(shift_y_last_name) else 0
+        
+        x_coordinate = page_width - (x_coordinates[index] + shift_x) * convert_mm_to_pt
+        y_coordinate = (y_coordinates[index] + shift_y) * convert_mm_to_pt
+        
+        print(f"Фамилия {last_name_data[index]} -> X: {x_coordinate}, Y: {y_coordinate}")
         can.drawString(x_coordinate, y_coordinate, last_name_data[index])
 
     # ПРОСТАНОВКА ПОДПИСЕЙ
@@ -440,17 +461,25 @@ for name in file_names:
     else:
         x_coordinates = x_sign_drawing
         y_coordinates = y_sign_drawing
-    for index in range(0, len(x_coordinates)):
+
+    shift_x_sign = [0, 0, 0, -0, 0, 0] # Дополнительный сдвиг по X для подписей
+    shift_y_sign = [0, 0, 0, -5, -5, 10] # Дополнительный сдвиг по Y для подписей
+
+    for index in range(len(x_coordinates)):
         if sign_status_data[index] != 'да':
             continue
-        # Пропуск фамилии технолога в спецификацях
         if doc_is_bom and index == 2:
             continue
-        # Пропуск фамилии технолога в схемах
         if doc_is_scheme and index == 2:
             continue
-        x_coordinate = page_width - x_coordinates[index] * convert_mm_to_pt
-        y_coordinate = y_coordinates[index] * convert_mm_to_pt
+        
+        shift_x = shift_x_sign[index] if index < len(shift_x_sign) else 0
+        shift_y = shift_y_sign[index] if index < len(shift_y_sign) else 0
+        
+        x_coordinate = page_width - (x_coordinates[index] + shift_x) * convert_mm_to_pt
+        y_coordinate = (y_coordinates[index] + shift_y) * convert_mm_to_pt
+        
+        print(f"Подпись {index} -> X: {x_coordinate}, Y: {y_coordinate}")
         can.drawImage(sign_list[index], x_coordinate, y_coordinate, sign_width, sign_height)
 
     # ЗАПОЛНЕНИЕ ДАТ
@@ -461,10 +490,15 @@ for name in file_names:
     else:
         x_coordinates = x_date_drawing
         y_coordinates = y_date_drawing
+
+    # Добавим оффсеты для дат
+    shift_x_date = [0, 0, 0, 0, 0, 0, ]  # Пример сдвигов по X
+    shift_y_date = [0, 0, 0, -5, -5, 10]  # Пример сдвигов по Y 5 это 4
+
     for index in range(0, len(x_coordinates)):
         if sign_status_data[index] != 'да':
             continue
-        # Пропуск фамилии технолога в спецификацях
+        # Пропуск фамилии технолога в спецификациях
         if doc_is_bom and index == 2:
             continue
         # Пропуск фамилии технолога в схемах
@@ -472,9 +506,17 @@ for name in file_names:
             continue
         if date_data[index] == '':
             continue
-        x_coordinate = page_width - x_coordinates[index] * convert_mm_to_pt
-        y_coordinate = y_coordinates[index] * convert_mm_to_pt
+
+        # Получаем сдвиги для текущего индекса
+        shift_x = shift_x_date[index] if index < len(shift_x_date) else 0
+        shift_y = shift_y_date[index] if index < len(shift_y_date) else 0
+
+        # Расчёт координат с учётом сдвигов
+        x_coordinate = page_width - (x_coordinates[index] + shift_x) * convert_mm_to_pt
+        y_coordinate = (y_coordinates[index] + shift_y) * convert_mm_to_pt
+
         can.drawString(x_coordinate, y_coordinate, date_data[index])
+
 
     # ЗАПОЛНЕНИЕ ЛИТЕРЫ
     can.setFont('GOST', 10)
